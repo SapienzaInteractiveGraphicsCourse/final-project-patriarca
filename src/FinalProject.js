@@ -2170,7 +2170,6 @@ function render(now) {
 }
 
 requestAnimationFrame(render);
-
 }
 
 main();
