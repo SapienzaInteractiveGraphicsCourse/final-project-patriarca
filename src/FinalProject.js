@@ -2,6 +2,8 @@ import * as THREE from '../lib/three.js-master/build/three.module.js';
 import * as TWEEN from '../lib/tween.js/dist/tween.esm.js';
 import {GLTFLoader} from '../lib/three.js-master/examples/jsm/loaders/GLTFLoader.js';
 import {OrbitControls} from '../lib/three.js-master/examples/jsm/controls/OrbitControls.js';
+import CannonDebugRenderer from '../lib/cannon.js/tools/threejs/CannonDebugRenderer.js';
+
 
 function main() {
 
@@ -9,6 +11,9 @@ const canvas = document.querySelector('#gl-canvas');
 const renderer = new THREE.WebGLRenderer({canvas});
 renderer.physicallyCorrectLights = true;
 renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.shadowMap.enabled = true;
+renderer.shadowMapSoft = false;
+
 
 // *** camera setup *** //
 
@@ -17,14 +22,19 @@ const aspect = canvas.height/canvas.width;
 const near = 0.1;
 const far = 100;
 const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-camera.position.z = 10;
-camera.position.y = 5;
+camera.position.x = -15;
+camera.position.y = 2;
+camera.rotation.y += -Math.PI/2;
+
 
 // *** controls *** //
 
+/*
 const controls = new OrbitControls(camera, canvas);
-controls.target.set(0, 3, 0);
+controls.target.set(0, 5, 0);
 controls.update();
+*/
+
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('skyblue');
@@ -41,35 +51,67 @@ scene.background = new THREE.Color('skyblue');
     }
 
     {
-    
         const color = 0xFFFFFF;
         const intensity = 1;
         const light = new THREE.DirectionalLight(color, intensity);
-        light.position.set(-3, 7, 7);
+        light.width = 100;
+        light.position.set(-3, 15, 10);
         light.target.position.set(0, 3, 0);
+        if(true) {
+          light.castShadow = true;
+
+          light.shadow.camera.near = 0.5;
+          light.shadow.camera.far = 40; //camera.far;
+          light.shadow.camera.fov = 100;
+          light.shadow.camera.width = 300;
+          light.shadow.camera.height = 100;
+          light.shadow.camera.left = -15;
+          light.shadow.camera.bottom = -15;
+          light.shadow.camera.right = 15;
+          light.shadow.camera.top = 15;
+
+          light.shadowMapBias = 0.1;
+          light.shadowMapDarkness = 0.7;
+          light.shadow.mapSize.width = 2*512;
+          light.shadow.mapSize.height = 2*512;
+        }
         scene.add(light);
         scene.add(light.target);
+
+        /*
+        const cameraHelper = new THREE.CameraHelper(light.shadow.camera);
+        scene.add(cameraHelper);
+        cameraHelper.update();
+        */
     
     }
 }
 
 // *** objects setup *** //
 
-function dumpObject(obj, lines = [], isLast = true, prefix = '') {
-    const localPrefix = isLast ? '└─' : '├─';
-    lines.push(`${prefix}${prefix ? localPrefix : ''}${obj.name || '*no-name*'} [${obj.type}]`);
-    const newPrefix = prefix + (isLast ? '  ' : '│ ');
-    const lastNdx = obj.children.length - 1;
-    obj.children.forEach((child, ndx) => {
-      const isLast = ndx === lastNdx;
-      dumpObject(child, lines, isLast, newPrefix);
-    });
-    return lines;
-}
-
 const models = {
   dragon: {url: '../models/Dragon.gltf', gltf: undefined},
-  wizard: {url: '../models/Wizard6.gltf', gltf: undefined}
+  wizard: {url: '../models/Wizard6.gltf', gltf: undefined},
+  birch1: {url: '../models/BirchTree_2.glb', gltf: undefined},
+  birch2: {url: '../models/BirchTree_2.glb', gltf: undefined},
+  birch3: {url: '../models/BirchTree_3.glb', gltf: undefined},
+  birch4: {url: '../models/BirchTree_4.glb', gltf: undefined},
+  bush1: {url: '../models/Bush_1.glb', gltf: undefined},
+  bush2: {url: '../models/Bush_1.glb', gltf: undefined},
+  bush3: {url: '../models/Bush_1.glb', gltf: undefined},
+  pineTree1: {url: '../models/PineTree_1.glb', gltf: undefined},
+  pineTree11: {url: '../models/PineTree_1.glb', gltf: undefined},
+  pineTree12: {url: '../models/PineTree_1.glb', gltf: undefined},
+  pineTree2: {url: '../models/PineTree_2.glb', gltf: undefined},
+  pineTree21: {url: '../models/PineTree_2.glb', gltf: undefined},
+  pineTree3: {url: '../models/PineTree_3.glb', gltf: undefined},
+  pineTree31: {url: '../models/PineTree_3.glb', gltf: undefined},
+  rock1: {url: '../models/Rock_Moss_1.glb', gltf: undefined},
+  rock2: {url: '../models/Rock_2.glb', gltf: undefined},
+  rock3: {url: '../models/Rock_6.glb', gltf: undefined},
+  woodLog: {url: '../models/WoodLog.glb', gltf: undefined},
+  commonTree1: {url: '../models/CommonTree_1.glb', gltf: undefined},
+  commonTree2: {url: '../models/CommonTree_4.glb', gltf: undefined}
 }
 
 const manager = new THREE.LoadingManager();
@@ -81,33 +123,119 @@ for(const elem of Object.values(models)){
     elem.gltf = gltf});
 }
 
+
 function init() {
 
   // dragon init
 
   let root = models.dragon.gltf.scene;
   scene.add(root);
-  console.log(dumpObject(root).join('\n'));
 
   const dragon = new GameObject('dragon', root);
   dragon.addAnimation('fly', fly);
   dragon.addInitFunction(
     function init(){
-      const bodyRoot = this.root.getObjectByName('BodyRoot');
+      const dragon = this.root.getObjectByName('BodyRoot');
       const eyes = this.root.getObjectByName('EyeArmature');
-      bodyRoot.position.z += -5;
-      eyes.position.z += -5;
+
+      const mesh1 = this.root.getObjectByName('Cylinder');
+      const mesh2 = this.root.getObjectByName('Cylinder_1');
+      const mesh3 = this.root.getObjectByName('Cylinder_2');
+      const mesh4 = this.root.getObjectByName('Cylinder_3');
+
+      mesh1.castShadow = true;
+      mesh1.receiveShadow = true;
+      mesh2.castShadow = true;
+      mesh2.receiveShadow = true;
+      mesh3.castShadow = true;
+      mesh3.receiveShadow = true;
+      mesh4.castShadow = true;
+      mesh4.receiveShadow = true;
+      
+      dragon.attach(eyes);
+      this.right = true;
+      
+
     }
   );
   dragon.addUpdateFunction(
     function update(){
+      const dragon = this.root.getObjectByName('BodyRoot');
+
+      // move the bounding box with the keyboard
+    
+      if(inputManager.keys.a.down) {
+        if(this.right){
+          this.right = false;
+          dragon.rotation.y += Math.PI;
+        }
+        bodyDragon.position.z -= this.velocity*globals.deltaTime;
+      }
+      if(inputManager.keys.d.down){
+        if(!this.right){
+          this.right = true;
+          dragon.rotation.y += Math.PI;
+        }
+        bodyDragon.position.z += this.velocity*globals.deltaTime;
+      }
+     
       this.getAnimation('fly').update();
+
+      // shoot balls with the keyboard
+      if(inputManager.keys.shift.justPressed) {
+
+        var x = bodyDragon.position.x;
+        var y = bodyDragon.position.y;
+        var z = bodyDragon.position.z;
+
+        const ballBody = new CANNON.Body({ mass: 1 });
+        const ballMesh = new THREE.Mesh(ballGeometry, materialRed);
+        ballBody.addShape(ballShape);
+        world.addBody(ballBody);
+        scene.add(ballMesh);
+        ballMesh.castShadow = true;
+        ballMesh.receiveShadow = true;
+        balls.push(ballBody);
+        ballMeshes.push(ballMesh);
+        let shootDir;
+        if(this.right) {
+          shootDir = new THREE.Vector3(0,0,1);
+          z += bodyDragon.shapes[0].halfExtents.z + 1;
+        }
+        else {
+          shootDir = new THREE.Vector3(0,0,-1);
+          z -= bodyDragon.shapes[0].halfExtents.z + 1;
+        }
+        const shootVel = 25;
+        ballBody.velocity.set(  shootDir.x * shootVel,
+                                shootDir.y * shootVel,
+                                shootDir.z * shootVel);
+        ballBody.position.set(x,y,z);
+        ballMesh.position.set(x,y,z);
+
+        ballBody.addEventListener('collide', (event)=>{
+          const idx = balls.findIndex((elem) => elem == event.target);
+          removeBody.push(balls[idx]);
+          removeMesh.push(ballMeshes[idx]);
+          balls.splice(idx, 1);
+          ballMeshes.splice(idx, 1);
+          if(event.body == bodyWizard)
+            hitWizard += 1;
+        });
+      }
+
+      // update the position of the model according to the bounding box one
+
+      dragon.position.copy(bodyDragon.position);
+      dragon.position.y += -0.5;
     }
   );
+  dragon.setVelocity(10);
   gameObjects.push(dragon);
 
   dragon.init();
   AnimFlySetup();
+
 
   // wizard init
 
@@ -129,32 +257,27 @@ function init() {
       root.remove(footR);
       lowerLegL.attach(footL);
       root.remove(footL);
-      
     
-      console.log(dumpObject(root).join('\n'));
-
       body.rotation.y += Math.PI;
-      body.position.z += 5;
-      body.position.y += 0.3;
-
-      const Mesh = root.getObjectByName('Wizard001');
-      const skeleton = Mesh.skeleton.bones;
     
-      for(var i=0; i<skeleton.length; i++){
-          console.log(i);
-          console.log(skeleton[i].name);
-      }       
+      const Mesh = root.getObjectByName('Wizard001');
+      
+      Mesh.castShadow = true;
+      Mesh.receiveShadow = true;
+    
     }
   );
   wizard.addUpdateFunction(
     function update(){
-      const body = this.root.getObjectByName('Body');
+      const wizard = this.root.getObjectByName('Body');
+
+      // move the bounding box with the keyboard
 
       if(inputManager.keys.left.down){
         if(this.right){
           this.right = false;
         }
-        body.position.z -= this.velocity*globals.deltaTime;
+        bodyWizard.position.z -= this.velocity*globals.deltaTime;
         this.getAnimation('run').update();
       }
 
@@ -162,13 +285,62 @@ function init() {
         if(!this.right) {
           this.right = true;
         }
-        body.position.z += this.velocity*globals.deltaTime;
+        bodyWizard.position.z += this.velocity*globals.deltaTime;
         this.getAnimation('run').update();
       }
 
       if(!inputManager.keys.left.down && !inputManager.keys.right.down){
         this.getAnimation('pose').update();
       }
+
+      // shoot balls with the keyboard
+
+      if(inputManager.keys.up.justPressed) {
+
+        var x = bodyWizard.position.x;
+        var y = bodyWizard.position.y;
+        var z = bodyWizard.position.z;
+
+        const ballBody = new CANNON.Body({ mass: 1 });
+        const ballMesh = new THREE.Mesh(ballGeometry, materialBlue);
+        ballBody.addShape(ballShape);
+        world.addBody(ballBody);
+        scene.add(ballMesh);
+        ballMesh.castShadow = true;
+        ballMesh.receiveShadow = true;
+        balls.push(ballBody);
+        ballMeshes.push(ballMesh);
+        let shootDir;
+        if(this.right) {
+          shootDir = new THREE.Vector3(0,0,1);
+          z += bodyWizard.shapes[0].halfExtents.z + 1;
+        }
+        else {
+          shootDir = new THREE.Vector3(0,0,-1);
+          z -= bodyWizard.shapes[0].halfExtents.z + 1;
+        }
+        const shootVel = 25;
+        ballBody.velocity.set(  shootDir.x * shootVel,
+                                shootDir.y * shootVel,
+                                shootDir.z * shootVel);
+        ballBody.position.set(x,y,z);
+        ballMesh.position.set(x,y,z);
+
+        ballBody.addEventListener('collide', (event)=>{
+          const idx = balls.findIndex((elem) => elem == event.target);
+          removeBody.push(balls[idx]);
+          removeMesh.push(ballMeshes[idx]);
+          balls.splice(idx, 1);
+          ballMeshes.splice(idx, 1);
+          if(event.body == bodyDragon)
+            hitDragon += 1;
+        });
+      }
+
+      // update the position of the model according to the bounding box one
+
+      wizard.position.copy(bodyWizard.position);
+      wizard.position.y += -0.5; // adjustment
     }
   )
   wizard.setVelocity(10);
@@ -177,16 +349,113 @@ function init() {
   wizard.init();
   AnimRunSetup();
   AnimPoseSetup();
+
+
+  // trees init 
+
+  root = models.birch2.gltf.scene;
+  scene.add(root);
+  root.position.set(6, 0, -4);
+
+  root = models.birch3.gltf.scene;
+  scene.add(root);
+  root.position.set(8, 0, -5.5);
+  root.rotation.y += Math.PI/2;
+
+  root = models.birch1.gltf.scene;
+  scene.add(root);
+  root.position.set(6, 0, -7);
+  root.rotation.y += Math.PI;
+
+  root = models.birch4.gltf.scene;
+  scene.add(root);
+  root.position.set(8, 0, 14);
+
+  root = models.pineTree1.gltf.scene;
+  scene.add(root);
+  root.position.set(6, 0, 7);
+
+  root = models.pineTree11.gltf.scene;
+  scene.add(root);
+  root.position.set(10, 0, 16);
+
+  root = models.pineTree12.gltf.scene;
+  scene.add(root);
+  root.position.set(-5, 0, -10);
+
+  root = models.pineTree2.gltf.scene;
+  scene.add(root);
+  root.position.set(15, 0, -6);
+
+  root = models.pineTree21.gltf.scene;
+  scene.add(root);
+  root.position.set(5, 0, 14);
+
+  root = models.pineTree3.gltf.scene;
+  scene.add(root);
+  root.position.set(14, 0, -15);
+
+  root = models.pineTree31.gltf.scene;
+  scene.add(root);
+  root.position.set(9, 0, 0);
+  root.rotation.y += Math.PI;
+
+  root = models.commonTree1.gltf.scene;
+  scene.add(root);
+  root.position.set(15, 0, 4);
+
+  root = models.commonTree2.gltf.scene;
+  scene.add(root);
+  root.position.set(5, 0, -15);
+  
+
+
+  //bush init
+
+  root = models.bush1.gltf.scene;
+  scene.add(root);
+  root.position.set(5, 0, -4.5);
+
+  root = models.bush2.gltf.scene;
+  scene.add(root);
+  root.position.set(5.5, 0, -9);
+
+  root = models.bush3.gltf.scene;
+  scene.add(root);
+  root.position.set(4, 0, 7);
+
+  //rock init
+
+  root = models.rock1.gltf.scene;
+  scene.add(root);
+  root.position.set(9, 1, -6);
+
+  root = models.rock2.gltf.scene;
+  scene.add(root);
+  root.position.set(6, 0, -13);
+
+  root = models.rock3.gltf.scene;
+  scene.add(root);
+  root.position.set(5, 0, 10);
+
+  // woodLog init
+
+  root = models.woodLog.gltf.scene;
+  scene.add(root);
+  root.position.set(5, -0.1, 3);
+
+  
+  
 }
 
-const planeSize = 40;
+const planeSize = 200;
 const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
 const planeMat = new THREE.MeshStandardMaterial({color: 0x329832});
 planeMat.side = THREE.DoubleSide;
 const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+planeMesh.receiveShadow = true;
 planeMesh.rotation.x = Math.PI * -.5; // by default the plane is parallel to the XY plane , we want it to be pararell to XZ
 scene.add(planeMesh);
-
 
 const gameObjects = []; // array of all the game objects in the scene
 
@@ -194,11 +463,13 @@ class GameObject {
     constructor(name, root){
         this.name = name;
         this.root = root;
+        this.mesh = undefined;
         this.animation = [];
         this.update = undefined; // update the model
         this.init = undefined;  // initial position and rotation of the model in the scene
         this.right = false;
         this.velocity = 0;
+        this.box = undefined;
     }
 
     setVelocity(vel){this.velocity = vel}
@@ -217,71 +488,7 @@ const fly = new TWEEN.Group();
 const run = new TWEEN.Group();
 const pose = new TWEEN.Group();
 
-const flyingWing1 = [
-    {x:0 , y:0 , z:0 , w:1 },
-    {x:-0.066 , y:0.017 , z:-0.070 , w:0.979 },
-    {x:-0.136 , y:0.035 , z:-0.145 , w:0.957 },
-    {x:-0.207 , y:0.053 , z:-0.220 , w:0.935 },
-    {x:-0.273 , y:0.070 , z:-0.290 , w:0.915 },
-    {x:-0.262 , y:0.068 , z:-0.279 , w:0.918 },
-    {x:-0.248 , y:0.064 , z:-0.264 , w:0.922 },
-    {x:-0.207 , y:0.053 , z:-0.220 , w:0.935 },
-    {x:-0.151 , y:0.039 , z:-0.161 , w:0.953 },
-    {x:-0.066 , y:0.017 , z:-0.070 , w:0.979 },
-    {x:-0.011 , y:0.003 , z:-0.011 , w:0.997 },
-    {x:-0.003 , y:0.000 , z:-0.003 , w:0.999 },
-    {x:0 , y:0 , z:0 , w:1 }
-];
-
-const flyingWing2 = [
-    {x:0 , y:0 , z:0 , w:1 },
-    {x:-0.113 , y:0.003 , z:-0.086 , w:0.954 },
-    {x:-0.234 , y:0.005 , z:-0.178 , w:0.904 },
-    {x:-0.355 , y:0.008 , z:-0.270 , w:0.855 },
-    {x:-0.468 , y:0.010 , z:-0.356 , w:0.809 },
-    {x:-0.450 , y:0.010 , z:-0.342 , w:0.816 },
-    {x:-0.426 , y:0.010 , z:-0.324 , w:0.826 },
-    {x:-0.355 , y:0.008 , z:-0.270 , w:0.855 },
-    {x:-0.260 , y:0.006 , z:-0.197 , w:0.894 },
-    {x:-0.113 , y:0.003 , z:-0.086 , w:0.954 },
-    {x:-0.018 , y:0.000 , z:-0.014 , w:0.992 },
-    {x:-0.005 , y:0.000 , z:-0.003 , w:0.998 },
-    {x:0 , y:0 , z:0 , w:1 }
-];
-
-const flyingWing3 = [
-    {x:0 , y:0 , z:0 , w:1 },
-    {x:0 , y:0 , z:0 , w:1 },
-    {x:0 , y:0 , z:0 , w:1 },
-    {x:-0.022 , y:0.018 , z:-0.076 , w:0.986 },
-    {x:-0.092 , y:0.076 , z:-0.316 , w:0.941 },
-    {x:-0.088 , y:0.073 , z:-0.303 , w:0.944 },
-    {x:-0.084 , y:0.069 , z:-0.288 , w:0.947 },
-    {x:-0.070 , y:0.058 , z:-0.240 , w:0.955 },
-    {x:-0.051 , y:0.042 , z:-0.175 , w:0.967 },
-    {x:-0.022 , y:0.018 , z:-0.076 , w:0.986 },
-    {x:-0.004 , y:0.003 , z:-0.012 , w:0.998 },
-    {x:-0.000 , y:0.000 , z:-0.003 , w:0.999 },
-    {x:0 , y:0 , z:0 , w:1 }
-];
-
-const flyingWing4 = [
-    {x:0 , y:0 , z:0 , w:1 },
-    {x:-0.029 , y:-0.075 , z:0.160 , w:0.984 },
-    {x:-0.029 , y:-0.075 , z:0.160 , w:0.984 },
-    {x:-0.029 , y:-0.075 , z:0.160 , w:0.984 },
-    {x:0.003 , y:-0.018 , z:0.028 , w:0.978 },
-    {x:0.058 , y:0.080 , z:-0.194 , w:0.968 },
-    {x:0.066 , y:0.095 , z:-0.229 , w:0.967 },
-    {x:0.062 , y:0.088 , z:-0.212 , w:0.967 },
-    {x:0.051 , y:0.067 , z:-0.166 , w:0.969 },
-    {x:0.025 , y:0.020 , z:-0.059 , w:0.974 },
-    {x:-0.006 , y:-0.034 , z:0.065 , w:0.980 },
-    {x:-0.015 , y:-0.050 , z:0.102 , w:0.981 },
-    {x:-0.022 , y:-0.063 , z:0.132 , w:0.983 }
-];
-
-function AnimFlySetup() {
+function AnimFlySetup(){
 
     const root = gameObjects.find((elem)=>elem.name == 'dragon').root;
 
@@ -302,6 +509,70 @@ function AnimFlySetup() {
     Wing3R = root.getObjectByName('Wing3R');
     Wing4L = root.getObjectByName('Wing4L');
     Wing4R = root.getObjectByName('Wing4R');
+
+  const flyingWing1 = [
+      {x:0 , y:0 , z:0 , w:1 },
+      {x:-0.066 , y:0.017 , z:-0.070 , w:0.979 },
+      {x:-0.136 , y:0.035 , z:-0.145 , w:0.957 },
+      {x:-0.207 , y:0.053 , z:-0.220 , w:0.935 },
+      {x:-0.273 , y:0.070 , z:-0.290 , w:0.915 },
+      {x:-0.262 , y:0.068 , z:-0.279 , w:0.918 },
+      {x:-0.248 , y:0.064 , z:-0.264 , w:0.922 },
+      {x:-0.207 , y:0.053 , z:-0.220 , w:0.935 },
+      {x:-0.151 , y:0.039 , z:-0.161 , w:0.953 },
+      {x:-0.066 , y:0.017 , z:-0.070 , w:0.979 },
+      {x:-0.011 , y:0.003 , z:-0.011 , w:0.997 },
+      {x:-0.003 , y:0.000 , z:-0.003 , w:0.999 },
+      {x:0 , y:0 , z:0 , w:1 }
+  ];
+  
+  const flyingWing2 = [
+      {x:0 , y:0 , z:0 , w:1 },
+      {x:-0.113 , y:0.003 , z:-0.086 , w:0.954 },
+      {x:-0.234 , y:0.005 , z:-0.178 , w:0.904 },
+      {x:-0.355 , y:0.008 , z:-0.270 , w:0.855 },
+      {x:-0.468 , y:0.010 , z:-0.356 , w:0.809 },
+      {x:-0.450 , y:0.010 , z:-0.342 , w:0.816 },
+      {x:-0.426 , y:0.010 , z:-0.324 , w:0.826 },
+      {x:-0.355 , y:0.008 , z:-0.270 , w:0.855 },
+      {x:-0.260 , y:0.006 , z:-0.197 , w:0.894 },
+      {x:-0.113 , y:0.003 , z:-0.086 , w:0.954 },
+      {x:-0.018 , y:0.000 , z:-0.014 , w:0.992 },
+      {x:-0.005 , y:0.000 , z:-0.003 , w:0.998 },
+      {x:0 , y:0 , z:0 , w:1 }
+  ];
+  
+  const flyingWing3 = [
+      {x:0 , y:0 , z:0 , w:1 },
+      {x:0 , y:0 , z:0 , w:1 },
+      {x:0 , y:0 , z:0 , w:1 },
+      {x:-0.022 , y:0.018 , z:-0.076 , w:0.986 },
+      {x:-0.092 , y:0.076 , z:-0.316 , w:0.941 },
+      {x:-0.088 , y:0.073 , z:-0.303 , w:0.944 },
+      {x:-0.084 , y:0.069 , z:-0.288 , w:0.947 },
+      {x:-0.070 , y:0.058 , z:-0.240 , w:0.955 },
+      {x:-0.051 , y:0.042 , z:-0.175 , w:0.967 },
+      {x:-0.022 , y:0.018 , z:-0.076 , w:0.986 },
+      {x:-0.004 , y:0.003 , z:-0.012 , w:0.998 },
+      {x:-0.000 , y:0.000 , z:-0.003 , w:0.999 },
+      {x:0 , y:0 , z:0 , w:1 }
+  ];
+  
+  const flyingWing4 = [
+      {x:0 , y:0 , z:0 , w:1 },
+      {x:-0.029 , y:-0.075 , z:0.160 , w:0.984 },
+      {x:-0.029 , y:-0.075 , z:0.160 , w:0.984 },
+      {x:-0.029 , y:-0.075 , z:0.160 , w:0.984 },
+      {x:0.003 , y:-0.018 , z:0.028 , w:0.978 },
+      {x:0.058 , y:0.080 , z:-0.194 , w:0.968 },
+      {x:0.066 , y:0.095 , z:-0.229 , w:0.967 },
+      {x:0.062 , y:0.088 , z:-0.212 , w:0.967 },
+      {x:0.051 , y:0.067 , z:-0.166 , w:0.969 },
+      {x:0.025 , y:0.020 , z:-0.059 , w:0.974 },
+      {x:-0.006 , y:-0.034 , z:0.065 , w:0.980 },
+      {x:-0.015 , y:-0.050 , z:0.102 , w:0.981 },
+      {x:-0.022 , y:-0.063 , z:0.132 , w:0.983 }
+  ];
 
     const Wing1LQuad = new THREE.Quaternion().copy(Wing1L.quaternion);
     const Wing1RQuad = new THREE.Quaternion().copy(Wing1R.quaternion);
@@ -504,8 +775,42 @@ function AnimFlySetup() {
     Wing4Tween01.start();
 }
 
+function AnimRunSetup() {
 
-// 0 - 1 - 2 - 4 - 5 - 6 - 7 - 9 -> 18 - 21
+  const wizard = gameObjects.find((elem)=>elem.name == 'wizard');
+  const root = wizard.root;
+
+  
+  let LowerLegR;
+  let UpperLegR;
+  let LowerLegL;
+  let UpperLegL;
+  let UpperArmR;
+  let LowerArmR;
+  let UpperArmL;
+  let LowerArmL;
+  let Torso;
+  let Abdomen;
+  let Body;
+  let Neck;
+  let Head;
+  
+  
+  LowerLegR = root.getObjectByName('LowerLegR');
+  UpperLegR = root.getObjectByName('UpperLegR');
+  LowerLegL = root.getObjectByName('LowerLegL');
+  UpperLegL = root.getObjectByName('UpperLegL');
+  UpperArmR = root.getObjectByName('UpperArmR');
+  LowerArmR = root.getObjectByName('LowerArmR');
+  UpperArmL = root.getObjectByName('UpperArmL');
+  LowerArmL = root.getObjectByName('LowerArmL');
+  Torso = root.getObjectByName('Torso');
+  Abdomen = root.getObjectByName('Abdomen');
+  Body = root.getObjectByName('Body');
+  Neck = root.getObjectByName('Neck');
+  Head = root.getObjectByName('Head');
+
+  // 0 - 1 - 2 - 4 - 5 - 6 - 7 - 9 -> 18 - 21
 const runUpperLegL = [
   {qx:0.096, qy:0.003, qz:0.000, qw:0.995},
   {qx:0.103, qy:0.003, qz:0.000, qw:0.995},
@@ -702,41 +1007,6 @@ const runBody = [
   {tx: 0.000, ty:-0.009, tz:-0.002},
   {tx: 0.000, ty:-0.009, tz:-0.002}, 
 ];
-
-function AnimRunSetup() {
-
-  const wizard = gameObjects.find((elem)=>elem.name == 'wizard');
-  const root = wizard.root;
-
-  
-  let LowerLegR;
-  let UpperLegR;
-  let LowerLegL;
-  let UpperLegL;
-  let UpperArmR;
-  let LowerArmR;
-  let UpperArmL;
-  let LowerArmL;
-  let Torso;
-  let Abdomen;
-  let Body;
-  let Neck;
-  let Head;
-  
-  
-  LowerLegR = root.getObjectByName('LowerLegR');
-  UpperLegR = root.getObjectByName('UpperLegR');
-  LowerLegL = root.getObjectByName('LowerLegL');
-  UpperLegL = root.getObjectByName('UpperLegL');
-  UpperArmR = root.getObjectByName('UpperArmR');
-  LowerArmR = root.getObjectByName('LowerArmR');
-  UpperArmL = root.getObjectByName('UpperArmL');
-  LowerArmL = root.getObjectByName('LowerArmL');
-  Torso = root.getObjectByName('Torso');
-  Abdomen = root.getObjectByName('Abdomen');
-  Body = root.getObjectByName('Body');
-  Neck = root.getObjectByName('Neck');
-  Head = root.getObjectByName('Head');
 
 
   const UpperLegLQuad = new THREE.Quaternion().copy(UpperLegL.quaternion);
@@ -1288,7 +1558,7 @@ function AnimRunSetup() {
   AbdomenTween01.start();
 
 
-  const BodyTran = new THREE.Vector3().copy(Body.position);
+  let BodyTran = new THREE.Vector3().copy(Body.position);
   const BodyQuad = new THREE.Quaternion().copy(Body.quaternion);
 
   const HeadQuad = new THREE.Quaternion().copy(Head.quaternion);
@@ -1334,7 +1604,6 @@ function AnimRunSetup() {
   BodyTween910.chain(BodyTween1011);
   BodyTween1011.chain(BodyTween1112);
   BodyTween1112.chain(BodyTween01);
-  
 
   BodyTween01.onUpdate(updateFunc);
   BodyTween12.onUpdate(updateFunc);
@@ -1468,7 +1737,7 @@ function AnimPoseSetup() {
 
   const BodyQuad = new THREE.Quaternion().copy(Body.quaternion);
 
-  let updateFunc = (transf) => {
+  let updateFunc = (transf) => { 
     Body.quaternion.multiplyQuaternions(BodyQuad, new THREE.Quaternion(transf.qx, transf.qy, transf.qz, transf.qw));
     const flag = wizard.right == true ? 1:0;
     Body.rotation.y += flag*Math.PI;
@@ -1541,7 +1810,6 @@ function AnimPoseSetup() {
 
 
   const HeadQuad = new THREE.Quaternion().copy(Head.quaternion);
-  console.log(HeadQuad);
 
   updateFunc = (transf) => {
     Head.quaternion.multiplyQuaternions(HeadQuad, new THREE.Quaternion(transf.qx, transf.qy, transf.qz, transf.qw));
@@ -1704,11 +1972,6 @@ function AnimPoseSetup() {
   
 }
 
-function AnimAttackSetup() {
-  
-}
-
-
 // *** input manager *** //
 
 class InputManager {
@@ -1740,8 +2003,11 @@ class InputManager {
       addKey(39, 'right');
       addKey(38, 'up');
       addKey(40, 'down');
-      addKey(90, 'a');
-      addKey(88, 'b');
+      addKey(87, 'w');
+      addKey(83, 's');
+      addKey(65, 'a');
+      addKey(68, 'd');
+      addKey(16, 'shift')
    
       window.addEventListener('keydown', (e) => {
         setKeyFromKeyCode(e.keyCode, true);
@@ -1760,34 +2026,144 @@ class InputManager {
     }
 }
 
-// *** render loop *** //
-
 const inputManager = new InputManager();
+
+// Physics engine initialization //
+
+let world;
+let bodyDragon, bodyWizard, groundBody, wallBody1, wallBody2;
+let physicsContactMaterial;
+let debug;
+
+const ballShape = new CANNON.Sphere(0.2);
+const ballGeometry = new THREE.SphereGeometry(ballShape.radius, 32,32);
+const materialBlue = new THREE.MeshStandardMaterial({color: 0x0000ff});
+const materialRed = new THREE.MeshStandardMaterial({color: 0xff0000});
+const balls = [];
+const ballMeshes = [];
+const removeBody = [];
+const removeMesh = [];
+
+let hitDragon = 0;
+let hitWizard = 0;
+
+function initCannon() {
+
+  world = new CANNON.World();
+  world.gravity.set(0,-20,0);
+  world.broadphase = new CANNON.NaiveBroadphase();
+  const solver = new CANNON.GSSolver();
+  solver.iterations = 7;
+  solver.tolerance = 0.1;
+  world.solver = new CANNON.SplitSolver(solver);
+
+  const physicsMaterial = new CANNON.Material("slipperyMaterial");
+  physicsContactMaterial = new CANNON.ContactMaterial(physicsMaterial,
+                                                      physicsMaterial,
+                                                      0.0, // friction coefficient
+                                                      0.1  // restitution
+                                                      );
+  // We must add the contact materials to the world
+  world.addContactMaterial(physicsContactMaterial);
+
+  // Create a planes
+  let groundShape = new CANNON.Plane(planeSize, planeSize);
+  groundBody = new CANNON.Body({ mass: 0 });
+  groundBody.addShape(groundShape);
+  groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0),-Math.PI/2);
+  world.addBody(groundBody);
+
+  wallBody1 = new CANNON.Body({mass:0});
+  wallBody1.addShape(groundShape);
+  wallBody1.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),-Math.PI/2);
+  wallBody1.position.set(3.500/2, 0, 0);
+  world.addBody(wallBody1);
+
+  wallBody2 = new CANNON.Body({mass:0});
+  wallBody2.addShape(groundShape);
+  wallBody2.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),Math.PI/2);
+  wallBody2.position.set(-3.500/2, 0, 0);
+  world.addBody(wallBody2);
+
+  // bounding box dragon
+  let shapeDragon = new CANNON.Box(new CANNON.Vec3(3.408/2, 3.852/2, 3.711/2));
+  bodyDragon = new CANNON.Body({
+    mass: 200
+  });
+  bodyDragon.addShape(shapeDragon);
+  world.addBody(bodyDragon);
+  bodyDragon.position.set(0,3.852/2,-5);
+  bodyDragon.addEventListener('collide', ()=>{
+    bodyDragon.velocity.setZero();
+    bodyDragon.angularVelocity.setZero();
+  });
+
+  //bounding box wizard
+  let shapeWizard = new CANNON.Box(new CANNON.Vec3(3.052/2, 3.0/2, 2.0/2)); //0.878
+  bodyWizard = new CANNON.Body({
+    mass: 60
+  });
+  bodyWizard.addShape(shapeWizard);
+  world.addBody(bodyWizard);
+  bodyWizard.position.set(0,2.3/2,5);
+  bodyWizard.addEventListener('collide', ()=>{
+    bodyWizard.velocity.setZero();
+    bodyWizard.angularVelocity.setZero();
+  });
+
+  debug = new CannonDebugRenderer(scene, world);
+}
+
+initCannon();
+
+// *** render loop *** //
 
 const globals = {
   time: 0,
-  deltaTime: 0
+  deltaTime: 0,
 }
 let then = 0;
 function render(now) {
 
-    now *= 0.001; // milliseconds to seconds
+   // time management 
+
+    now *= 0.001; //   to seconds
     const deltaTime = Math.min(now - then, 1/20);
     then = now;
 
     globals.time = now;
     globals.deltaTime = deltaTime;
 
-    
+    // remove objects to be removed
+
+    for(let i=0; i<removeBody.length; i++) {
+      if(removeBody[i]){
+        world.removeBody(removeBody[i]);
+        scene.remove(removeMesh[i]);
+      }
+    }
+  
+    // update the scene and the world
+
+    world.step(deltaTime);
     for(const elem of gameObjects) {
-      if(elem!==undefined && elem.update!==undefined)
+      if(elem!==undefined && elem.update!==undefined){
         elem.update(); 
+      }
+    }
+    for(let i=0; i<balls.length; i++){
+      if(balls[i]){
+        ballMeshes[i].position.copy(balls[i].position);
+        ballMeshes[i].quaternion.copy(balls[i].quaternion);
+      }
     }
     inputManager.update();
-    
+    //debug.update();
 
-    //pose.update();
-    //run.update();
+    document.getElementById("dragon").innerHTML = hitDragon;
+    document.getElementById("wizard").innerHTML = hitWizard;
+
+    // render the scene
     
     renderer.render(scene, camera);
     requestAnimationFrame(render);
