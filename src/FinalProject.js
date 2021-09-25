@@ -1,5 +1,5 @@
 import * as THREE from '../lib/three.js-master/build/three.module.js';
-import * as TWEEN from '../lib/tween.js/dist/tween.esm.js';
+import * as TWEEN from '../lib//tween.esm.js';
 import {GLTFLoader} from '../lib/three.js-master/examples/jsm/loaders/GLTFLoader.js';
 import {OrbitControls} from '../lib/three.js-master/examples/jsm/controls/OrbitControls.js';
 import CannonDebugRenderer from '../lib/cannon.js/tools/threejs/CannonDebugRenderer.js';
