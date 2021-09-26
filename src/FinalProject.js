@@ -14,7 +14,6 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.shadowMap.enabled = true;
 renderer.shadowMapSoft = false;
 
-
 // *** camera setup *** //
 
 const fov = 75;
@@ -154,8 +153,6 @@ function init() {
       
       dragon.attach(eyes);
       this.right = true;
-      
-
     }
   );
   dragon.addUpdateFunction(
@@ -163,6 +160,11 @@ function init() {
       const dragon = this.root.getObjectByName('BodyRoot');
 
       // move the bounding box with the keyboard
+
+      if(inputManager.keys.w.justPressed){
+        if(bodyDragon.position.y <= 3.852/2 + 0.7)
+          bodyDragon.velocity.set(0, 10, 0);
+      }
     
       if(inputManager.keys.a.down) {
         if(this.right){
@@ -273,7 +275,12 @@ function init() {
 
       // move the bounding box with the keyboard
 
-      if(inputManager.keys.left.down){
+      if(inputManager.keys.i.justPressed){
+        if(bodyWizard.position.y <= 2.3/2 + 0.7)
+          bodyWizard.velocity.set(0, 10, 0);
+      }
+
+      if(inputManager.keys.j.down){
         if(this.right){
           this.right = false;
         }
@@ -281,7 +288,7 @@ function init() {
         this.getAnimation('run').update();
       }
 
-      if(inputManager.keys.right.down){
+      if(inputManager.keys.l.down){
         if(!this.right) {
           this.right = true;
         }
@@ -289,14 +296,14 @@ function init() {
         this.getAnimation('run').update();
       }
 
-      if(!inputManager.keys.left.down && !inputManager.keys.right.down){
+      if(!inputManager.keys.j.down && !inputManager.keys.l.down){
         this.getAnimation('pose').update();
       }
 
       // shoot balls with the keyboard
 
-      if(inputManager.keys.up.justPressed) {
-
+      if(inputManager.keys.o.justPressed) {
+        
         var x = bodyWizard.position.x;
         var y = bodyWizard.position.y;
         var z = bodyWizard.position.z;
@@ -332,8 +339,9 @@ function init() {
           removeMesh.push(ballMeshes[idx]);
           balls.splice(idx, 1);
           ballMeshes.splice(idx, 1);
-          if(event.body == bodyDragon)
+          if(event.body == bodyDragon){
             hitDragon += 1;
+          }
         });
       }
 
@@ -450,7 +458,7 @@ function init() {
 
 const planeSize = 200;
 const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
-const planeMat = new THREE.MeshStandardMaterial({color: 0x329832});
+const planeMat = new THREE.MeshStandardMaterial({color: 0x006600}); //0x329832
 planeMat.side = THREE.DoubleSide;
 const planeMesh = new THREE.Mesh(planeGeo, planeMat);
 planeMesh.receiveShadow = true;
@@ -1999,15 +2007,16 @@ class InputManager {
         setKey(keyName, pressed);
       };
    
-      addKey(37, 'left');
-      addKey(39, 'right');
-      addKey(38, 'up');
-      addKey(40, 'down');
+      addKey(73, 'i');
+      addKey(74, 'j');
+      addKey(75, 'k');
+      addKey(76, 'l');
       addKey(87, 'w');
-      addKey(83, 's');
       addKey(65, 'a');
+      addKey(83, 's');
       addKey(68, 'd');
       addKey(16, 'shift')
+      addKey(79, 'o');
    
       window.addEventListener('keydown', (e) => {
         setKeyFromKeyCode(e.keyCode, true);
@@ -2076,19 +2085,19 @@ function initCannon() {
   wallBody1 = new CANNON.Body({mass:0});
   wallBody1.addShape(groundShape);
   wallBody1.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),-Math.PI/2);
-  wallBody1.position.set(3.500/2, 0, 0);
+  wallBody1.position.set(3.600/2, 0, 0);
   world.addBody(wallBody1);
 
   wallBody2 = new CANNON.Body({mass:0});
   wallBody2.addShape(groundShape);
   wallBody2.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),Math.PI/2);
-  wallBody2.position.set(-3.500/2, 0, 0);
+  wallBody2.position.set(-3.600/2, 0, 0);
   world.addBody(wallBody2);
 
   // bounding box dragon
   let shapeDragon = new CANNON.Box(new CANNON.Vec3(3.408/2, 3.852/2, 3.711/2));
   bodyDragon = new CANNON.Body({
-    mass: 200
+    mass: 100
   });
   bodyDragon.addShape(shapeDragon);
   world.addBody(bodyDragon);
